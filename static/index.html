@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Traductor de Libros</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #000;
+    color: #fff;
+    font-family: "Geist", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    overflow: hidden;
+  }
+
+  /* ---------- Background image (fixed, full-bleed, untouched) ---------- */
+  .bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background: url("assets/blackhole.jpg") center / cover no-repeat #000;
+  }
+
+  /* ---------- Glass overlay (covers almost everything; leaves a clean frame around the edges) ---------- */
+  .glass {
+    position: fixed;
+    z-index: 1;
+    /* leave a strip of the original image visible around the borders */
+    inset: 64px;
+    border-radius: 24px;
+    backdrop-filter: blur(18px) saturate(115%) brightness(0.95);
+    -webkit-backdrop-filter: blur(18px) saturate(115%) brightness(0.95);
+    background: rgba(8, 10, 18, 0.12);
+    border: 1px solid rgba(255,255,255,0.05);
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,0.03),
+      0 30px 80px rgba(0,0,0,0.45);
+    pointer-events: none;
+  }
+
+  @media (max-width: 700px) {
+    .glass { inset: 24px; border-radius: 18px; }
+  }
+
+  /* ---------- Foreground ---------- */
+  .stage {
+    position: relative;
+    z-index: 2;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .card {
+    width: min(720px, 100%);
+    text-align: center;
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    color: rgba(230, 220, 210, 0.6);
+    margin-bottom: 18px;
+  }
+
+  h1 {
+    font-family: "Instrument Serif", Georgia, serif;
+    font-weight: 400;
+    font-size: clamp(38px, 5.4vw, 68px);
+    line-height: 1.05;
+    margin: 0 0 18px;
+    white-space: nowrap;
+    color: #f6efe6;
+    letter-spacing: -0.005em;
+    text-shadow: 0 2px 30px rgba(0,0,0,0.45);
+  }
+  h1 em {
+    font-style: italic;
+    font-weight: 400;
+    background: linear-gradient(180deg, #ffd9a8 0%, #ff9a45 60%, #ff7418 100%);
+    -webkit-background-clip: text;
+            background-clip: text;
+    color: transparent;
+  }
+  h1 .dash {
+    display: inline-block;
+    transform: translateY(-0.08em);
+    margin: 0 0.04em;
+    opacity: 0.7;
+  }
+
+  .sub {
+    font-family: "Instrument Serif", Georgia, serif;
+    font-style: italic;
+    color: rgba(240, 232, 220, 0.7);
+    font-size: 20px;
+    margin: 0 auto 40px;
+    max-width: 480px;
+    letter-spacing: 0.01em;
+  }
+
+  /* File dropzone */
+  .drop {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 28px 22px;
+    border-radius: 18px;
+    border: 1.5px dashed rgba(255, 230, 200, 0.28);
+    background: rgba(255, 255, 255, 0.025);
+    cursor: pointer;
+    transition: border-color .25s, background .25s;
+    margin: 0 auto 22px;
+    max-width: 460px;
+  }
+  .drop:hover,
+  .drop.drag {
+    border-color: rgba(255, 200, 120, 0.7);
+    background: rgba(255, 180, 80, 0.06);
+  }
+  .drop.has-file {
+    border-style: solid;
+    border-color: rgba(255,180,80,0.5);
+    background: rgba(255, 160, 60, 0.06);
+  }
+  .drop input[type="file"] { display: none; }
+
+  .drop-default {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+  }
+  .drop-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 215, 175, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffd9a8;
+    margin: 0 auto;
+  }
+  .drop-icon svg { display: block; }
+
+  .drop-title {
+    color: #f6efe6;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .drop-hint {
+    color: rgba(230, 220, 210, 0.5);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+  }
+  .file-meta {
+    display: none;
+    font-size: 13px;
+    color: rgba(255,225,195,0.9);
+    word-break: break-all;
+    line-height: 1.4;
+  }
+  .drop.has-file .drop-default { display: none; }
+  .drop.has-file .file-meta { display: block; }
+
+  .clear-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,225,195,0.85);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    display: none;
+  }
+  .drop.has-file .clear-btn { display: block; }
+  .clear-btn:hover { background: rgba(255,255,255,0.18); }
+
+  /* Submit */
+  .submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-width: 240px;
+    padding: 18px 40px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,210,150,0.55);
+    cursor: pointer;
+    font-family: "Instrument Serif", Georgia, serif;
+    font-size: 24px;
+    font-weight: 400;
+    letter-spacing: 0.005em;
+    color: #1a0a00;
+    background: linear-gradient(180deg, #ffd9a8 0%, #ff9a45 60%, #ff7418 100%);
+    box-shadow:
+      0 20px 55px rgba(255,120,30,0.5),
+      0 0 80px rgba(255,150,50,0.25),
+      inset 0 1px 0 rgba(255,255,255,0.9),
+      inset 0 -2px 0 rgba(140,50,0,0.35);
+    transition: transform .2s ease, box-shadow .25s ease, filter .2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .submit:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow:
+      0 28px 70px rgba(255,120,30,0.65),
+      0 0 100px rgba(255,150,50,0.35),
+      inset 0 1px 0 rgba(255,255,255,0.95),
+      inset 0 -2px 0 rgba(140,50,0,0.35);
+  }
+  .submit:active:not(:disabled) { transform: translateY(0); filter: brightness(0.97); }
+  .submit:disabled {
+    cursor: not-allowed;
+    filter: grayscale(0.5) brightness(0.6);
+    box-shadow: none;
+    border-color: rgba(255,210,150,0.18);
+  }
+  .submit .label { position: relative; z-index: 2; }
+  .submit .arrow {
+    position: relative;
+    z-index: 2;
+    display: inline-flex;
+    transition: transform .25s ease;
+  }
+  .submit:hover:not(:disabled) .arrow { transform: translateX(5px); }
+
+  .status {
+    margin-top: 16px;
+    min-height: 18px;
+    font-size: 13px;
+    color: rgba(255,225,195,0.7);
+    letter-spacing: 0.02em;
+  }
+
+  .dots span {
+    display: inline-block;
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: #ffb86b;
+    margin: 0 2px;
+    animation: blink 1.2s infinite ease-in-out;
+  }
+  .dots span:nth-child(2) { animation-delay: .2s; }
+  .dots span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink {
+    0%,80%,100% { opacity: 0.2; transform: translateY(0); }
+    40%         { opacity: 1;   transform: translateY(-2px); }
+  }
+
+  /* Progress bar */
+  .progress-wrap {
+    display: none;
+    max-width: 460px;
+    margin: 18px auto 0;
+  }
+  .progress-wrap.active { display: block; }
+  .progress-track {
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.08);
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #ffd9a8 0%, #ff9a45 60%, #ff7418 100%);
+    box-shadow: 0 0 16px rgba(255,150,50,0.5);
+    transition: width .4s ease;
+  }
+  .progress-pct {
+    margin-top: 8px;
+    font-size: 12px;
+    color: rgba(255,225,195,0.7);
+    letter-spacing: 0.04em;
+  }
+
+  @media (max-width: 600px) {
+    h1 { white-space: normal; font-size: 40px; }
+    .submit { font-size: 20px; padding: 16px 30px; }
+    .sub { font-size: 17px; margin-bottom: 28px; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="bg" aria-hidden="true"></div>
+  <div class="glass" aria-hidden="true"></div>
+
+  <main class="stage">
+    <section class="card">
+      <div class="eyebrow">Traductor de Libros</div>
+      <h1>Cruza el <em>horizonte</em> del idioma</h1>
+      <p class="sub">Sube tu archivo .epub y deja que las palabras orbiten.</p>
+
+      <form id="form" novalidate>
+        <label class="drop" id="drop" for="file">
+          <button type="button" class="clear-btn" id="clear" aria-label="Quitar archivo">×</button>
+          <div class="drop-default">
+            <div class="drop-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12l7-7 7 7"/></svg>
+            </div>
+            <div class="drop-title">Selecciona o arrastra tu archivo</div>
+            <div class="drop-hint">Solo formato .epub</div>
+          </div>
+          <div class="file-meta" id="fileMeta"></div>
+          <input type="file" id="file" accept=".epub,application/epub+zip" />
+        </label>
+
+        <button type="submit" class="submit" id="submit" disabled>
+          <span class="label">Traducir</span>
+          <span class="arrow" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 5l7 7-7 7"/></svg>
+          </span>
+        </button>
+
+        <div class="status" id="status" aria-live="polite"></div>
+
+        <div class="progress-wrap" id="progressWrap">
+          <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+          <div class="progress-pct" id="progressPct">0%</div>
+        </div>
+      </form>
+    </section>
+  </main>
+
+<script>
+  const drop = document.getElementById('drop');
+  const fileInput = document.getElementById('file');
+  const fileMeta = document.getElementById('fileMeta');
+  const submitBtn = document.getElementById('submit');
+  const clearBtn = document.getElementById('clear');
+  const status = document.getElementById('status');
+  const form = document.getElementById('form');
+  const progressWrap = document.getElementById('progressWrap');
+  const progressFill = document.getElementById('progressFill');
+  const progressPct = document.getElementById('progressPct');
+
+  const POLL_MS = 2000;
+
+  function showProgress(on) {
+    progressWrap.classList.toggle('active', on);
+  }
+  function updateProgress(pct, msg) {
+    pct = Math.max(0, Math.min(100, pct || 0));
+    progressFill.style.width = pct + '%';
+    progressPct.textContent = pct + '%';
+    if (msg) status.textContent = msg;
+  }
+
+  function fmtSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+    return (bytes/1024/1024).toFixed(2) + ' MB';
+  }
+
+  function setFile(file) {
+    if (!file) {
+      fileInput.value = '';
+      drop.classList.remove('has-file');
+      submitBtn.disabled = true;
+      status.textContent = '';
+      showProgress(false);
+      updateProgress(0, '');
+      return;
+    }
+    const isEpub = file.name.toLowerCase().endsWith('.epub');
+    if (!isEpub) {
+      status.innerHTML = '<span style="color:#ff9b6b">Por favor selecciona un archivo .epub</span>';
+      return;
+    }
+    fileMeta.innerHTML = `<strong style="color:#fff">${file.name}</strong><br><span style="opacity:.7">${fmtSize(file.size)}</span>`;
+    drop.classList.add('has-file');
+    submitBtn.disabled = false;
+    status.textContent = '';
+  }
+
+  fileInput.addEventListener('change', (e) => setFile(e.target.files[0]));
+
+  clearBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setFile(null);
+  });
+
+  ['dragenter','dragover'].forEach(ev =>
+    drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); })
+  );
+  ['dragleave','drop'].forEach(ev =>
+    drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('drag'); })
+  );
+  drop.addEventListener('drop', e => {
+    const f = e.dataTransfer.files[0];
+    if (f) {
+      const dt = new DataTransfer();
+      dt.items.add(f);
+      fileInput.files = dt.files;
+      setFile(f);
+    }
+  });
+
+  async function startTranslation(file) {
+    const fd = new FormData();
+    fd.append('epub', file);   // el backend lee request.files["epub"]
+    const res = await fetch('/traducir', { method: 'POST', body: fd });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'No se pudo subir el archivo.');
+    }
+    const data = await res.json();
+    return data.job_id;
+  }
+
+  function pollStatus(jobId) {
+    return new Promise((resolve, reject) => {
+      const tick = async () => {
+        try {
+          const res = await fetch('/estado/' + jobId);
+          const data = await res.json();
+          updateProgress(data.progreso, data.mensaje);
+
+          if (data.status === 'completado') {
+            resolve(data);
+          } else if (data.status === 'error') {
+            reject(new Error(data.error || 'Error durante la traducción.'));
+          } else if (data.status === 'pausado') {
+            resolve(data);   // límite diario: no es un fallo, el progreso queda guardado
+          } else {
+            setTimeout(tick, POLL_MS);
+          }
+        } catch (e) {
+          // Fallo puntual de red: reintentar sin abortar
+          setTimeout(tick, POLL_MS);
+        }
+      };
+      tick();
+    });
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    submitBtn.disabled = true;
+    submitBtn.querySelector('.label').textContent = 'Traduciendo';
+    showProgress(true);
+    updateProgress(0, 'Subiendo archivo…');
+
+    try {
+      const jobId = await startTranslation(file);
+      const result = await pollStatus(jobId);
+
+      if (result.status === 'pausado') {
+        status.innerHTML = '<span style="color:#ffcf8b">' + (result.mensaje || 'Límite diario alcanzado. El progreso está guardado.') + '</span>';
+      } else {
+        updateProgress(100, '¡Traducción completada!');
+        status.innerHTML = '<span style="color:#9bff9b">Listo. Descargando el archivo traducido…</span>';
+        window.location.href = '/descargar/' + jobId;   // dispara la descarga sin cambiar de página
+      }
+    } catch (err) {
+      status.innerHTML = '<span style="color:#ff9b6b">' + err.message + '</span>';
+      showProgress(false);
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.querySelector('.label').textContent = 'Traducir';
+    }
+  });
+</script>
+</body>
+</html>
