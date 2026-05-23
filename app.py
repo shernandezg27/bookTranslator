@@ -54,7 +54,7 @@ def traducir():
     job_id = uuid.uuid4().hex[:8]
     uploads_dir = Path(__file__).parent / "uploads"
     uploads_dir.mkdir(exist_ok=True)
-    epub_path = uploads_dir / f"{job_id}_{archivo.filename}"
+    epub_path = uploads_dir / archivo.filename  # mismo nombre → checkpoint persiste entre subidas
     archivo.save(epub_path)
 
     jobs[job_id] = {
