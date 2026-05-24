@@ -477,8 +477,12 @@
         status.innerHTML = '<span style="color:#ffcf8b">' + (result.mensaje || 'Límite diario alcanzado. El progreso está guardado.') + '</span>';
       } else {
         updateProgress(100, '¡Traducción completada!');
-        status.innerHTML = '<span style="color:#9bff9b">Listo. Descargando el archivo traducido…</span>';
-        window.location.href = '/descargar/' + jobId;   // dispara la descarga sin cambiar de página
+        status.innerHTML = '<span style="color:#9bff9b">Descargando…</span>';
+        window.location.href = '/descargar/' + jobId;
+        setTimeout(() => {
+          setFile(null);
+          showProgress(false);
+        }, 2500);
       }
     } catch (err) {
       status.innerHTML = '<span style="color:#ff9b6b">' + err.message + '</span>';
